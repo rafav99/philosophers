@@ -17,6 +17,7 @@ size_t	get_current_time(void)
 
 typedef struct	s_philo
 {
+	pthread_t		thread;
 	int	philo_num;
 	int philo_id;
 	int	time_to_eat;
@@ -24,6 +25,8 @@ typedef struct	s_philo
 	int time_to_sleep;
 	int num_of_times;
 	size_t start_time;
+	pthread_mutex_t	*r_fork;
+	pthread_mutex_t	*l_fork;
 	char *philo_list;
 }					t_philo;
 
@@ -72,23 +75,22 @@ int	ft_atoi(const char *nptr)
 void *p_routine(void *philo_stats)
 {
 	size_t tstamp;
-
-	tstamp = get_current_time() - ((t_philo *)philo_stats)->start_time;
+	size_t start_time = get_current_time();
+	
 	while(1)
-	{
-		printf("%i\n", ((t_philo *)philo_stats)->philo_id);
-		tstamp = get_current_time() - ((t_philo *)philo_stats)->start_time;
-		printf("%zu has taken a fork\n", tstamp);
-		printf("%zu is eating\n", tstamp);
-		usleep(10000);
-		usleep(((t_philo *)philo_stats)->time_to_eat);
-		printf(" time is %zu\n", get_current_time());
-		tstamp = get_current_time() - ((t_philo *)philo_stats)->start_time;
-		printf("%zu is sleeping\n", tstamp);
+	{ 
+		tstamp = get_current_time() - start_time;
+		printf("%zu %i has taken a fork\n", tstamp, ((t_philo *)philo_stats)->philo_id);
+		printf("%zu %i is eating\n", tstamp, ((t_philo *)philo_stats)->philo_id);
+		usleep(((t_philo *)philo_stats)->time_to_eat * 1000);
+		tstamp = get_current_time() - start_time;
+		printf("%zu %i is sleeping\n", tstamp, ((t_philo *)philo_stats)->philo_id);
 		usleep(((t_philo *)philo_stats)->time_to_sleep);
-		tstamp = get_current_time() - ((t_philo *)philo_stats)->start_time;
-		printf("%zu is thinking\n", tstamp);
-		//printf ("%zu died\n", tstamp);
+		tstamp = get_current_time() - start_time;
+		printf("%zu %i is thinking\n", tstamp, ((t_philo *)philo_stats)->philo_id);
+		usleep(((t_philo *)philo_stats)->time_to_die);
+		tstamp = get_current_time() - start_time;
+		printf ("%zu %i died\n", tstamp,((t_philo *)philo_stats)->philo_id);
 	return(philo_stats);
 	}
 	
@@ -98,9 +100,9 @@ int main(int argc, char *argv[])
 {	
 	int	i;
 	
-	t_philo philo_stats; 
-	pthread_t philo1;
-  	pthread_t philo2;
+	t_philo *philo_stats;
+	char *forks;
+
 	if (argc > 6 || argc < 5)
 	{
 		exit(2);
@@ -112,18 +114,32 @@ int main(int argc, char *argv[])
 			i++;
 		else
 			exit(2);
+	}	
+	philo_stats = malloc(ft_atoi(argv[4])* sizeof(t_philo));
+	forks = malloc(ft_atoi(argv[4]));
+	i = 0;
+	while (i < ft_atoi(argv[1]))
+	{
+		philo_stats[i].philo_id = i;
+
+		philo_stats[i].time_to_die = ft_atoi(argv[2]);
+		philo_stats[i].time_to_eat = ft_atoi(argv[3]);
+		philo_stats[i].time_to_sleep = ft_atoi(argv[4]);
+		philo_stats[i].philo_num = ft_atoi(argv[1]);
+		pthread_mutex_init(philo_stats[i].r_fork, NULL);
+		if (i > 0)
+			philo_stats[i].l_fork = philo_stats[i].r_fork;
+		else
+			philo_stats[i].l_fork = philo_stats[ft_atoi(argv[1] - 1)].r_fork;
+		pthread_create(&(philo_stats[i].thread), NULL, p_routine, (void*) &philo_stats[i]);
+		i++;
 	}
-	philo_stats.philo_num = ft_atoi(argv[1]);
-	philo_stats.time_to_eat = ft_atoi(argv[2]);
-	philo_stats.time_to_sleep = ft_atoi(argv[3]);
-	philo_stats.philo_num = ft_atoi(argv[4]);
-	philo_stats.philo_list = malloc(philo_stats.philo_num);
-	philo_stats.start_time = get_current_time();
-	printf("start time is %zu\n", philo_stats.start_time);
-	philo_stats.philo_id = 1;
-	pthread_create(&philo1, NULL, p_routine, (void*) &philo_stats);
-	philo_stats.philo_id = 2;
-	pthread_create(&philo2, NULL, p_routine, (void*) &philo_stats);
-	pthread_join(philo1, NULL);
-  	pthread_join(philo2, NULL);
+	i = 0;
+	while (i < ft_atoi(argv[1]))
+	{
+		philo_stats[i].philo_id = i;
+		pthread_join(philo_stats[i].thread, NULL);
+		i++;
+	}
+	free(philo_stats);
 }
