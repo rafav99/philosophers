@@ -1,80 +1,120 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <pthread.h>
+#include <sys/time.h>
+#include <stdlib.h>
 
-// the initial balance is 0
-int balance = 0;
+typedef struct s_philo {
+    int id;
+    pthread_mutex_t *r_fork;
+    pthread_mutex_t *l_fork;
+} t_philo;
 
+size_t get_current_time(void) {
+    struct timeval time;
 
-  pthread_mutex_t mutex;
+    if (gettimeofday(&time, NULL) == -1) {
+        write(2, "gettimeofday() error\n", 22);
+    }
+    return (time.tv_sec * 1000 + time.tv_usec / 1000);
+}
+char myfork[4];
 
-// write the new balance (after as simulated 1/4 second delay)
-void write_balance(int new_balance)
-{
-  usleep(250000);
-  balance = new_balance;
+// Carry out a deposit
+void *deposit(void *amount) {
+    int i;
+    char forks = 'o';
+    i = 0;
+    int id = ((t_philo *)amount)->id;
+
+    while (i < 10) {
+        if(myfork[id +1] != 'o')
+        pthread_mutex_lock(((t_philo *)amount)->r_fork);
+        myfork[id] = 'o';
+        if (forks = 'l')
+          forks = 'b';
+        else
+          forks = 'r';
+        printf("Philosopher %i got the right fork\n", id);
+          pthread_mutex_lock(((t_philo *)amount)->l_fork);
+          if (forks == 'r')
+            forks = 'b';
+          else
+            forks = 'r';
+        printf("Philosopher %i got the left fork\n", id);
+        if (forks == 'b')
+        {
+          printf("Philosopher %i is eating\n", id);
+          //printf("Time is %zu\n", get_current_time());
+          usleep(5000);
+          printf("Philosopher %i finished eating\n", id);
+          pthread_mutex_unlock(((t_philo *)amount)->r_fork);
+          pthread_mutex_unlock(((t_philo *)amount)->l_fork);
+          forks = 'o';
+          myfork[id] = 'f';
+        }
+         //printf("Time is %zu\n", get_current_time());
+        //printf("Philosopher %i is sleeping\n", id);
+        //printf("Time is %zu\n", get_current_time());
+        usleep(10000);
+        //printf("Philosopher %i finished sleeping\n", id);
+        //printf("Time is %zu\n", get_current_time());
+
+        i++;
+    }
+
+    return NULL;
 }
 
-// returns the balance (after a simulated 1/4 seond delay)
-int read_balance()
-{
-  usleep(250000);
-  return balance;
-}
+int main() {
+    // Mutex variable
+    t_philo philo1;
+    t_philo philo2;
+    t_philo philo3;
 
-// carry out a deposit
-void* deposit(void *amount)
-{
-  // lock the mutex
-  pthread_mutex_lock(&mutex);
 
-  // retrieve the bank balance
-  int account_balance = read_balance();
+    // Output the balance before the deposits
 
-  // make the update locally
-  account_balance += *((int *) amount);
+    // We'll create two threads to conduct a deposit using the deposit function
+    pthread_t philos1;
+    pthread_t philos2;
+    pthread_t philos3;
 
-  // write the new bank balance
-  write_balance(account_balance);
+    // Allocate memory for the mutexes
+    philo1.r_fork = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
+    philo2.r_fork = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
+    philo3.r_fork = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
+    philo1.l_fork = philo3.r_fork;
+    philo2.l_fork = philo1.r_fork;
+    philo3.l_fork = philo2.r_fork;
+    // Initialize the mutex
+    pthread_mutex_init(philo1.r_fork, NULL);
+    pthread_mutex_init(philo2.r_fork, NULL);
+    pthread_mutex_init(philo3.r_fork, NULL);
 
-  // unlock to make the critical section available to other threads
-  pthread_mutex_unlock(&mutex);
+    philo1.id = 1;
+    philo2.id = 2;
+    philo3.id = 3;
 
-  return NULL;
-}
+    // Create threads
+    pthread_create(&philos1, NULL, deposit, (void *)&philo1);
+    pthread_create(&philos2, NULL, deposit, (void *)&philo2);
+    pthread_create(&philos3, NULL, deposit, (void *)&philo3);
 
-int main()
-{
-  // mutex variable
+    // Join the threads
+    pthread_join(philos1, NULL);
+    pthread_join(philos2, NULL);
+    pthread_join(philos3, NULL);
 
-  // output the balance before the deposits
-  int before = read_balance();
- 
-  // we'll create two threads to conduct a deposit using the deposit function
-  pthread_t thread1;
-  pthread_t thread2;
+    // Destroy the mutex
+    pthread_mutex_destroy(philo1.r_fork);
+    pthread_mutex_destroy(philo2.r_fork);
+    pthread_mutex_destroy(philo3.r_fork);
 
-  // initialize the mutex
-  pthread_mutex_init(&mutex, NULL);
+    // Free the allocated memory for the mutexes
+    free(philo1.r_fork);
+    free(philo2.r_fork);
+    free(philo3.r_fork);
 
-  // the deposit amounts... the correct total afterwards should be 500
-  int deposit1 = 300;
-  int deposit2 = 200;
-
-  // create threads to run the deposit function with these deposit amounts
-  pthread_create(&thread1, NULL, deposit, (void*) &deposit1);
-  pthread_create(&thread2, NULL, deposit, (void*) &deposit2);
-
-  // join the threads
-  pthread_join(thread1, NULL);
-  pthread_join(thread2, NULL);
-
-   // destroy the mutex
-  pthread_mutex_destroy(&mutex);
-
-  // output the balance after the deposits
-  int after = read_balance();
-  printf("After: %d\n", after);
-
-  return 0;
+    return 0;
 }
