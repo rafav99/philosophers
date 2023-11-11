@@ -91,7 +91,7 @@ void *p_routine(void *philo_stats)
 		usleep(((t_philo *)philo_stats)->time_to_die);
 		tstamp = get_current_time() - start_time;
 		printf ("%zu %i died\n", tstamp,((t_philo *)philo_stats)->philo_id);
-	return(philo_stats);
+		return(philo_stats);
 	}
 	
 }
